@@ -1,0 +1,12 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+.idea/*
+# Datasource local storage ignored files
+/../../../../:\projects\AdderNet\.idea/dataSources/
+/dataSources.local.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+models/cifar10-resnet20-30abc31d.pth
+models/ResNet20-AdderNet.pth
+models/ResNet50-AdderNet.pth
