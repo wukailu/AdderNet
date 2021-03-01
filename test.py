@@ -23,6 +23,7 @@ parser.add_argument('--data_dir', type=str,
                     help='path to dataset', default="/cache/imagenet/val/")
 parser.add_argument('--model_dir', type=str,
                     help='path to dataset', default="models/ResNet50-AdderNet.pth")
+parser.add_argument('--cnn', help="if use cnn or ann, default use ann", action="store_true")
 best_acc1 = 0
 args, unparsed = parser.parse_known_args()
 
@@ -47,7 +48,7 @@ def weight_clip(model: torch.nn.Module, target_module, w_range):
                 param.data = param.data.clamp(w_range[0], w_range[1])
 
 
-def get_model(dataset, model_path):
+def get_model(dataset, model_path, is_cnn):
     if dataset == 'cifar10':
         from models import resnet20
         model = resnet20.resnet20()
@@ -59,7 +60,6 @@ def get_model(dataset, model_path):
     elif dataset == 'cifar10_cnn':
         from models.resnet_cnn import cifar_resnet20
         model = cifar_resnet20(pretrained='cifar10')
-
         # Do quantilization
         # model.eval()
         # model.qconfig = torch.quantization.get_default_qconfig('fbgemm')
@@ -79,6 +79,16 @@ def get_model(dataset, model_path):
         model = torch.nn.DataParallel(model, device_ids=[0]).cuda()
         model.load_state_dict(torch.load(model_path))
         model = model.module
+    elif dataset == "PACS":
+        # if is_cnn:
+        #     from torchvision.models import resnet50
+        #     model = resnet50(num_classes=7)
+        # else:
+        #     from models.resnet50 import resnet50
+        #     model = resnet50(num_classes=7)
+        #
+        # model.load_state_dict(torch.load(model_path))
+        model = torch.load(model_path)
     else:
         assert False
     return model
@@ -104,6 +114,12 @@ def get_val_loader(dataset):
             ])),
             batch_size=args.batch_size, shuffle=False,
             num_workers=args.workers, pin_memory=True)
+    elif args.dataset == "PACS":
+        from PACS import PACS
+        # d = PACS(["cartoon"], "cartoon", domain_info=False)
+        # d = PACS(["sketch"], "sketch", domain_info=False)
+        d = PACS(["art_painting"], "art_painting", domain_info=False)
+        val_loader = torch.utils.data.DataLoader(d.gen_val_datasets(), batch_size=10, num_workers=0)
     else:
         assert False
     return val_loader
@@ -111,7 +127,7 @@ def get_val_loader(dataset):
 
 def main():
     # create model
-    model = get_model(args.dataset, args.model_dir)
+    model = get_model(args.dataset, args.model_dir, args.cnn)
     # model_ann = get_model('cifar10_cnn', "")
 
     cudnn.benchmark = True
@@ -166,9 +182,9 @@ def validate(val_loader, model, device):
             input = input.to(device)
             target = target.to(device)
 
-            with torch.enable_grad():
-                input = attack(input, target).cuda()
-            assert input.grad_fn is None
+            # with torch.enable_grad():
+            #     input = attack(input, target).cuda()
+            # assert input.grad_fn is None
             # compute output
             output = model(input)
 
